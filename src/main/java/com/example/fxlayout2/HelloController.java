@@ -11,6 +11,22 @@ import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.producer.RecordMetadata;
+import org.apache.kafka.common.serialization.IntegerSerializer;
+import org.apache.kafka.common.serialization.StringSerializer;
+import reactor.core.publisher.Flux;
+import reactor.kafka.sender.KafkaSender;
+import reactor.kafka.sender.SenderOptions;
+import reactor.kafka.sender.SenderRecord;
+
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 public class HelloController {
     @FXML
@@ -40,98 +56,62 @@ public class HelloController {
     @FXML
     private Label anchorStatusLabel;
 
+
+    private static final String BOOTSTRAP_SERVERS = "localhost:9092";
+    private static final String TOPIC = "demo-topic";
+
     @FXML
-    public void initialize() {
-
-//        final ChangeListener<Number> stageSizeListener = (observable, oldValue, newValue) ->
-//                leftStatusLabel.setText("W: " + mainBorderPane.getWidth() + " H: " + mainBorderPane.getHeight());
-//
-//        mainBorderPane.widthProperty().addListener(stageSizeListener);
-//        mainBorderPane.heightProperty().addListener(stageSizeListener);
-//        mainBorderPane.widthProperty().addListener(new ChangeListener<Number>() {
-//            @Override
-//            public void changed(ObservableValue<? extends Number> observable, Number oldValue, Number newValue) {
-////                leftToolBar.setPrefWidth(leftAnchorPane.getHeight());
-//                System.out.println("anchor height " + leftAnchorPane.getHeight() + " toolbar width: " + leftToolBar.getWidth());
-//            }
-//        });
-
-
+    public void initialize() throws InterruptedException {
         Platform.runLater(() -> {
             double v = mainVBox.getHeight() - (bottomHBox.getHeight() + mainMenuBar.getHeight() + topAnchorPane.getHeight());
             System.out.println("v: " + v);
             leftToolBar.setPrefWidth(v);
         });
 
-
         mainVBox.heightProperty().addListener(new ChangeListener<Number>() {
             @Override
             public void changed(ObservableValue<? extends Number> observable, Number oldValue, Number newValue) {
                 leftToolBar.setPrefWidth(mainVBox.getHeight() - (bottomHBox.getHeight() + mainMenuBar.getHeight() + topAnchorPane.getHeight()));
-
-//                System.out.println("anchor height " + leftAnchorPane.getHeight() + " toolbar width: " + leftToolBar.getWidth());
             }
         });
 
+        Map<String, Object> props = new HashMap<>();
+        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
+        props.put(ProducerConfig.CLIENT_ID_CONFIG, "sample-producer");
+        props.put(ProducerConfig.ACKS_CONFIG, "all");
+        props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, IntegerSerializer.class);
+        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        SenderOptions<Integer, String> senderOptions = SenderOptions.create(props);
 
-//        leftToolBar.widthProperty().addListener(new ChangeListener<Number>() {
-//            @Override
-//            public void changed(ObservableValue<? extends Number> observableValue, Number number, Number t1) {
-//                leftStatusLabel.setText("W: " + leftToolBar.getWidth() + " H: " + leftToolBar.getHeight());
-//            }
-//        });
-//        leftToolBar.heightProperty().addListener(new ChangeListener<Number>() {
-//            @Override
-//            public void changed(ObservableValue<? extends Number> observableValue, Number number, Number t1) {
-//                leftStatusLabel.setText("W: " + leftToolBar.getWidth() + " H: " + leftToolBar.getHeight());
-//            }
-//        });
-//
-//        leftAnchorPane.widthProperty().addListener(new ChangeListener<Number>() {
-//            @Override
-//            public void changed(ObservableValue<? extends Number> observableValue, Number number, Number t1) {
-//                anchorStatusLabel.setText("W: " + leftAnchorPane.getWidth() + " H: " + leftAnchorPane.getHeight());
-//            }
-//        });
-//        leftAnchorPane.heightProperty().addListener(new ChangeListener<Number>() {
-//            @Override
-//            public void changed(ObservableValue<? extends Number> observableValue, Number number, Number t1) {
-//                anchorStatusLabel.setText("W: " + leftAnchorPane.getWidth() + " H: " + leftAnchorPane.getHeight());
-//            }
-//        });
+        sender = KafkaSender.create(senderOptions);
+        dateFormat = new SimpleDateFormat("HH:mm:ss:SSS z dd MMM yyyy");
+
+        int count = 20;
+        CountDownLatch latch = new CountDownLatch(count);
+
+        sendMessages(TOPIC, count, latch);
+        latch.await(10, TimeUnit.SECONDS);
+        sender.close();
+
     }
 
+    private KafkaSender<Integer, String> sender;
+    private SimpleDateFormat dateFormat;
 
-//        leftToolBar.setMinWidth(mainBorderPane.getHeight());
-
-//        leftToolBar.prefWidthProperty().bind(leftAnchorPane.heightProperty().asObject());
-//        leftAnchorPane.prefHeightProperty().bind(leftToolBar.widthProperty());
-//        final ChangeListener<Number> listener = new ChangeListener<Number>() {
-//            @Override
-//            public void changed(ObservableValue<? extends Number> observableValue, Number number, Number t1) {
-//                leftAnchorPane.getHeight();
-//                leftToolBar.getWidth();
-//                leftStatusLabel.setText("W: " + leftToolBar.getWidth() + " H: " + leftToolBar.getHeight());
-//                leftToolBar.setPrefWidth(leftAnchorPane.getHeight() );
-//            }
-//        };
-//
-//        mainBorderPane.widthProperty().addListener(listener);
-//        mainBorderPane.heightProperty().addListener(listener);
-//
-//        mainBorderPane.widthProperty().addListener(stageSizeListener);
-//        mainBorderPane.heightProperty().addListener(stageSizeListener);
-//
-//
-//        final ChangeListener<Number> toolbarListener = (observable, oldValue, newValue) ->
-//                rightStatusLabel.setText("W: " + leftToolBar.getWidth() + " H: " + leftToolBar.getHeight());
-//        leftToolBar.widthProperty().addListener(toolbarListener);
-//        leftToolBar.heightProperty().addListener(toolbarListener);
-//
-//        final ChangeListener<Number> anchorPaneListener = (observable, oldValue, newValue) ->
-//                anchorStatusLabel.setText("W: " + leftAnchorPane.getWidth() + " H: " + leftAnchorPane.getHeight());
-//        leftAnchorPane.widthProperty().addListener(anchorPaneListener);
-//        leftAnchorPane.heightProperty().addListener(anchorPaneListener);
-
+    public void sendMessages(String topic, int count, CountDownLatch latch) throws InterruptedException {
+        sender.send(Flux.range(1, count)
+                        .map(i -> SenderRecord.create(new ProducerRecord<>(topic, i, "Message_" + i), i)))
+                .doOnError(e -> System.out.println("Error: " + e))
+                .subscribe(r -> {
+                    RecordMetadata metadata = r.recordMetadata();
+                    System.out.printf("Message %d sent successfully, topic-partition=%s-%d offset=%d timestamp=%s\n",
+                            r.correlationMetadata(),
+                            metadata.topic(),
+                            metadata.partition(),
+                            metadata.offset(),
+                            dateFormat.format(new Date(metadata.timestamp())));
+                    latch.countDown();
+                });
+    }
 
 }
